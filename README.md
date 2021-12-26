@@ -1,0 +1,1 @@
+# inlay-hints.nvim
