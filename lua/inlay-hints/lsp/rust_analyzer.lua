@@ -1,5 +1,3 @@
-local M = {}
-
 local utils = require('inlay-hints.utils')
 
 -- [1]: error
@@ -63,7 +61,7 @@ local function on_server_start(_, result)
   end
 end
 
-function M.lsp_handlers()
+local function lsp_handlers()
   -- compatibility with rust-tools
   local ok, rust_tools = pcall(require, 'rust-tools.server_status')
   local server_status = on_server_start
@@ -76,11 +74,7 @@ function M.lsp_handlers()
   }
 end
 
-function M.lsp_options()
-  return { handlers = M.lsp_handlers() }
-end
-
-function M.set_inlay_hints(bufnr, filter)
+local function set_inlay_hints(bufnr, filter)
   utils.request(
     bufnr,
     'rust-analyzer/inlayHints',
@@ -91,4 +85,7 @@ function M.set_inlay_hints(bufnr, filter)
   )
 end
 
-return M
+return require('inlay-hints.lsp').Server:new({
+  lsp_handlers = lsp_handlers,
+  set_inlay_hints = set_inlay_hints,
+})

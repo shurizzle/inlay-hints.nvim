@@ -2,83 +2,93 @@ local M = {}
 
 local utils = require('inlay-hints.utils')
 
+local Server = {}
+Server.__index = Server
+
+function Server:new(server)
+  local s = { __fns = server }
+  setmetatable(s, Server)
+  return s
+end
+
+function Server:lsp_handlers(opts)
+  if self.__fns.lsp_handlers then
+    return utils.deep_extend('force', opts or {}, self.__fns.lsp_handlers())
+  else
+    return opts
+  end
+end
+
+function Server:set_inlay_hints(...)
+  if self.__fns.set_inlay_hints then
+    self.__fns.set_inlay_hints(...)
+  end
+end
+
+function Server:on_attach(server, bufnr)
+  if server.name ~= self.name then
+    return
+  end
+  if self.__fns.on_attach then
+    self.__fns.on_attach(server, bufnr)
+  end
+
+  require('inlay-hints').setup_autocmd(bufnr, server.name)
+  self:set_inlay_hints(bufnr)
+end
+
+function Server:lsp_options(opts)
+  if self.__fns.lsp_options then
+    opts = utils.deep_extend('force', opts or {}, self.__fns.lsp_options())
+  end
+
+  opts.handlers = self:lsp_handlers(opts.handlers)
+
+  local on_attach = (function(server)
+    return function(...)
+      return server:on_attach(...)
+    end
+  end)(self)
+
+  if type(opts.on_attach) == 'function' then
+    opts.on_attach = utils.concat_functions(opts.on_attach, on_attach)
+  else
+    opts.on_attach = on_attach
+  end
+
+  return opts
+end
+
 local server_names = {
   rust_analyzer = 'rust_analyzer',
 }
 
-local servers = {}
+M.Server = Server
 
-local function create_cache(name)
+function M.get(name)
   if not server_names[name] then
     return
   end
 
   local server = require('inlay-hints.lsp.' .. server_names[name])
-
-  if not server.lsp_handlers then
-    server.lsp_handlers = function()
-      return {}
-    end
+  if server then
+    server.name = name
   end
 
-  if not server.lsp_options then
-    server.lsp_options = function()
-      return {}
-    end
-  end
-
-  if not server.set_inlay_hints then
-    server.set_inlay_hints = function() end
-  end
-
-  if not server.on_attach then
-    function server.on_attach(s, bufnr)
-      if s.name ~= name then
-        return
-      end
-
-      require('inlay-hints').setup_autocmd(bufnr, s.name)
-      server.set_inlay_hints(bufnr)
-    end
-  end
-
-  server._lsp_handlers = server.lsp_handlers
-  function server.lsp_handlers(opts)
-    return utils.deep_extend('force', opts or {}, server._lsp_handlers())
-  end
-
-  server._lsp_options = server.lsp_options
-  function server.lsp_options(opts)
-    opts = utils.deep_extend('force', opts or {}, server._lsp_options())
-    opts.handlers = server.lsp_handlers(opts.handlers)
-    if type(opts.on_attach) == 'function' then
-      opts.on_attach = utils.concat_functions(opts.on_attach, server.on_attach)
-    else
-      opts.on_attach = server.on_attach
-    end
-
-    return opts
-  end
-
-  servers[name] = server
-end
-
-function M.get(name)
-  create_cache(name)
-  return servers[name]
+  return server
 end
 
 function M.on_attach(s, bufnr)
   local server = M.get(s.name)
-  if server and server.on_attach then
-    return server.on_attach(s, bufnr)
+  if server then
+    return server:on_attach(s, bufnr)
   end
 end
 
 function M.lsp_handlers(name, opts)
   local server = M.get(name)
   if server then
-    return server.lsp_handlers(opts)
+    return server:lsp_handlers(opts)
   end
   return opts
 end
@@ -86,15 +96,15 @@ end
 function M.lsp_options(name, opts)
   local server = M.get(name)
   if server then
-    return server.lsp_options(opts)
+    return server:lsp_options(opts)
   end
   return opts
 end
 
 function M.set_inlay_hints(bufnr, name)
-  local server = M.get_server(name)
+  local server = M:get(name)
   if server then
-    server.set_inlay_hints(bufnr)
+    server:set_inlay_hints(bufnr)
   end
 end
 
