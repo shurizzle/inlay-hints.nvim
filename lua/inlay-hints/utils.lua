@@ -96,4 +96,14 @@ function M.deep_extend(policy, ...)
   return result
 end
 
+function M.buf_has_lsp(bufnr, name)
+  for _, server in ipairs(vim.lsp.buf_get_clients(bufnr)) do
+    if server.name == name then
+      return true
+    end
+  end
+
+  return false
+end
+
 return M

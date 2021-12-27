@@ -52,11 +52,23 @@ local function filtered_handler(filter)
   end
 end
 
+local function set_inlay_hints(bufnr, filter)
+  utils.request(
+    bufnr,
+    'rust-analyzer/inlayHints',
+    utils.get_params(),
+    filtered_handler(filter or function()
+      return true
+    end)
+  )
+end
+
 local function on_server_start(_, result)
-  if result.quiescent then
-    require('inlay-hints').on_attach(
-      { name = 'rust_analyzer' },
-      vim.api.nvim_get_current_buf()
+  local bufnr = vim.api.nvim_get_current_buf()
+
+  if utils.buf_has_lsp(bufnr, 'rust_analyzer') then
+    set_inlay_hints(
+      bufnr --[[, TODO: filter function ]]
     )
   end
 end
@@ -72,17 +84,6 @@ local function lsp_handlers()
   return {
     ['experimental/serverStatus'] = utils.make_handler(server_status),
   }
-end
-
-local function set_inlay_hints(bufnr, filter)
-  utils.request(
-    bufnr,
-    'rust-analyzer/inlayHints',
-    utils.get_params(),
-    filtered_handler(filter or function()
-      return true
-    end)
-  )
 end
 
 return require('inlay-hints.lsp').Server:new({
