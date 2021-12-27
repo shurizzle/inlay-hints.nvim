@@ -31,7 +31,7 @@ local function setup_autocmd(events, bufnr, server_name)
     string.format(
       'autocmd %s %s :lua require"inlay-hints.lsp".set_inlay_hints(%s,%s)',
       events,
-      bufnr and ('<buffer=' .. tostring(bufnr) .. '>') or '*',
+      bufnr and ('<buffer=' .. tostring(bufnr) .. '>') or '<buffer>',
       bufnr or 0,
       vim.inspect(server_name)
     )

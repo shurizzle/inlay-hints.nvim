@@ -102,7 +102,7 @@ function M.lsp_options(name, opts)
 end
 
 function M.set_inlay_hints(bufnr, name)
-  local server = M:get(name)
+  local server = M.get(name)
   if server then
     server:set_inlay_hints(bufnr)
   end
