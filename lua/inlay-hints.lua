@@ -55,8 +55,7 @@ local function make_autocmd(events, bufnr, server_name, method)
   return string.format(
     'autocmd %s %s :lua require"inlay-hints".%s(%s,%s)',
     events,
-    (bufnr and bufnr ~= 0) and ('<buffer=' .. tostring(bufnr) .. '>')
-      or '<buffer>',
+    ((bufnr or 0) ~= 0) and ('<buffer=' .. tostring(bufnr) .. '>') or '<buffer>',
     method,
     bufnr or 0,
     vim.inspect(server_name)
@@ -171,8 +170,8 @@ function M.setup_autocmd(bufnr, server_name)
     bufnr = vim.api.nvim_get_current_buf()
   end
   local cmd = string.format(
-    'augroup inlay_hints_b%s\nau!\n%s\n%s\naugroup END',
-    bufnr,
+    'augroup InlayHints\nau! * %s\n%s\n%s\naugroup END',
+    ((bufnr or 0) ~= 0) and ('<buffer=' .. tostring(bufnr) .. '>') or '<buffer>',
     make_autocmd(
       'BufEnter,BufWinEnter,TabEnter,BufWritePost',
       bufnr,
