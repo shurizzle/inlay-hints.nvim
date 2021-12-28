@@ -1,7 +1,5 @@
 local M = {}
 
-local lsp = require('inlay-hints.lsp')
-
 local default_options = {
   nerdfonts = true,
   render = {
@@ -29,7 +27,7 @@ local namespace = vim.api.nvim_create_namespace('inlay-hints')
 local function setup_autocmd(events, bufnr, server_name)
   vim.api.nvim_command(
     string.format(
-      'autocmd %s %s :lua require"inlay-hints.lsp".set_inlay_hints(%s,%s)',
+      'autocmd %s %s :lua require"inlay-hints".set_inlay_hints(%s,%s)',
       events,
       (bufnr and bufnr ~= 0) and ('<buffer=' .. tostring(bufnr) .. '>')
         or '<buffer>',
@@ -107,18 +105,13 @@ function M.buf_enable(bufnr)
   vim.fn.setbufvar(bufnr, 'inlay_hints_enabled', 1)
 end
 
-M.lsp_options = lsp.lsp_options
-function M.lsp_setup(name, opts)
-  local nvim_lsp = require('lspconfig')
-
-  nvim_lsp[name].setup(M.lsp_options(opts))
-end
+M.lsp_options = require('inlay-hints.lsp').lsp_options
 
 local function default_render(bufnr, hints, set_extmark)
   local lines = {}
 
   for _, varhint in ipairs(hints.variables) do
-    local line = varhint.range['end'].line + 1
+    local line = varhint.range['end'].line
     lines[line] = lines[line] or { types = '', returns = '' }
     if string.len(lines[line].types) > 0 then
       lines[line].types = lines[line].types .. options.render.type_separator
@@ -130,7 +123,7 @@ local function default_render(bufnr, hints, set_extmark)
   end
 
   for _, rethint in ipairs(hints.returns) do
-    local line = rethint.range['end'].line + 1
+    local line = rethint.range['end'].line
     lines[line] = lines[line] or { types = '', returns = '' }
     if string.len(lines[line].returns) > 0 then
       lines[line].returns = lines[line].returns
@@ -163,6 +156,24 @@ local function default_render(bufnr, hints, set_extmark)
   end
 end
 
+local function apply_filter(hints, filter)
+  local new_hints = { variables = {}, returns = {} }
+
+  for _, hint in ipairs(hints.variables) do
+    if filter(hint.range) then
+      table.insert(new_hints.variables, vim.tbl_deep_extend('force', {}, hint))
+    end
+  end
+
+  for _, hint in ipairs(hints.returns) do
+    if filter(hint.range) then
+      table.insert(new_hints.returns, vim.tbl_deep_extend('force', {}, hint))
+    end
+  end
+
+  return new_hints
+end
+
 function M.redraw(bufnr, filter)
   if (bufnr or 0) == 0 then
     bufnr = vim.api.nvim_get_current_buf()
@@ -176,24 +187,7 @@ function M.redraw(bufnr, filter)
 
   local hints = vim.fn.getbufvar(bufnr, 'inlay_hints_last_response', nil)
   if type(hints) == 'table' then
-    local new_hints = { variables = {}, returns = {} }
-
-    for _, hint in ipairs(hints.variables) do
-      if filter(hint.range) then
-        table.insert(
-          new_hints.variables,
-          vim.tbl_deep_extend('force', {}, hint)
-        )
-      end
-    end
-
-    for _, hint in ipairs(hints.returns) do
-      if filter(hint.range) then
-        table.insert(new_hints.returns, vim.tbl_deep_extend('force', {}, hint))
-      end
-    end
-
-    M.render(bufnr, new_hints)
+    M.render(bufnr, apply_filter(hints, filter))
   end
 end
 
@@ -217,7 +211,7 @@ function M.render(bufnr, hints)
 end
 
 function M.oneshot_line(bufnr, line)
-  line = line or (vim.api.nvim_win_get_cursor(bufnr or 0)[1] - 1)
+  line = line or vim.api.nvim_win_get_cursor(bufnr or 0)[1]
   local filter = function(range)
     return range['end'].line == line
   end
@@ -226,7 +220,28 @@ function M.oneshot_line(bufnr, line)
 end
 
 function M.oneshot(bufnr, filter)
-  require('inlay-hints.lsp').force_set_inlay_hints(bufnr, nil, filter)
+  require('inlay-hints.lsp').get_hints(nil, bufnr, function(err, hints)
+    if not err then
+      if type(filter) == 'function' then
+        hints = apply_filter(hints, filter)
+      end
+      M.render(bufnr, hints)
+    end
+  end)
+end
+
+function M.set_inlay_hints(bufnr, server_name)
+  if require('inlay-hints.utils').is_enabled(bufnr) then
+    require('inlay-hints.lsp').get_hints(
+      server_name,
+      bufnr,
+      function(error, hints)
+        if not error then
+          M.render(bufnr, hints)
+        end
+      end
+    )
+  end
 end
 
 return M

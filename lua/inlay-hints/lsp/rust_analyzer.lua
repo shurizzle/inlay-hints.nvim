@@ -2,7 +2,9 @@ local utils = require('inlay-hints.utils')
 
 local function fix_range(range)
   local new_range = vim.tbl_deep_extend('force', {}, range)
+  new_range.start.line = new_range.start.line + 1
   new_range.start.character = new_range.start.character + 1
+  new_range['end'].line = new_range['end'].line + 1
   new_range['end'].character = new_range['end'].character + 1
   return new_range
 end
@@ -14,8 +16,9 @@ end
 --   kind: ChainingHint, label: type, range
 -- [3]: {bufnr, client_id, method, params={textDocument={uri}}}
 -- [4]: config
-local function handler(error, hints, info, _, filter)
+local function handler(error, hints, info, _, callback)
   if error then
+    callback(error)
     return
   end
 
@@ -24,7 +27,6 @@ local function handler(error, hints, info, _, filter)
   end
 
   local save_hints = { variables = {}, returns = {} }
-  local new_hints = { variables = {}, returns = {} }
 
   for _, hint in ipairs(hints) do
     if hint.kind == 'TypeHint' then
@@ -36,43 +38,36 @@ local function handler(error, hints, info, _, filter)
       }
 
       table.insert(save_hints.variables, _hint)
-      if filter(_hint.range) then
-        table.insert(
-          new_hints.variables,
-          vim.tbl_deep_extend('force', {}, _hint)
-        )
-      end
     elseif hint.kind == 'ChainingHint' then
       local _hint = {
         type = hint.label,
         range = fix_range(hint.range),
       }
       table.insert(save_hints.returns, _hint)
-      if filter(_hint.range) then
-        table.insert(new_hints.returns, vim.tbl_deep_extend('force', {}, _hint))
-      end
     end
   end
 
-  vim.fn.setbufvar(info.bufnr, 'inlay_hints_last_response', save_hints)
+  vim.fn.setbufvar(
+    info.bufnr,
+    'inlay_hints_last_response',
+    vim.tbl_deep_extend('force', {}, save_hints)
+  )
 
-  require('inlay-hints').render(info.bufnr, new_hints)
+  callback(nil, save_hints)
 end
 
-local function filtered_handler(filter)
+local function callback_handler(callback)
   return function(a, b, c, d)
-    handler(a, b, c, d, filter)
+    handler(a, b, c, d, callback)
   end
 end
 
-local function set_inlay_hints(bufnr, filter)
+local function get_hints(bufnr, callback)
   utils.request(
-    bufnr,
+    bufnr or 0,
     'rust-analyzer/inlayHints',
     utils.get_params(),
-    filtered_handler(filter or function()
-      return true
-    end)
+    callback_handler(callback)
   )
 end
 
@@ -80,9 +75,7 @@ local function on_server_start(_, result)
   local bufnr = vim.api.nvim_get_current_buf()
 
   if utils.buf_has_lsp(bufnr, 'rust_analyzer') then
-    set_inlay_hints(
-      bufnr --[[, TODO: filter function ]]
-    )
+    require('inlay-hints').set_inlay_hints(bufnr, 'rust_analyzer')
   end
 end
 
@@ -101,5 +94,5 @@ end
 
 return require('inlay-hints.lsp').Server:new({
   lsp_handlers = lsp_handlers,
-  set_inlay_hints = set_inlay_hints,
+  get_hints = get_hints,
 })

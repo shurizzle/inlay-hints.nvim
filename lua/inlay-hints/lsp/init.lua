@@ -19,19 +19,8 @@ function Server:lsp_handlers(opts)
   end
 end
 
-function Server:force_set_inlay_hints(bufnr, filter)
-  if self.__fns.set_inlay_hints then
-    return self.__fns.set_inlay_hints(bufnr, filter)
-  end
-end
-
-function Server:set_inlay_hints(bufnr, filter)
-  if
-    (vim.g.inlay_hints_enabled or 1) ~= 0
-    and vim.fn.getbufvar(bufnr or 0, 'inlay_hints_enabled', 1) ~= 0
-  then
-    self:force_set_inlay_hints(bufnr, filter)
-  end
+function Server:get_hints(bufnr, callback)
+  self.__fns.get_hints(bufnr, callback)
 end
 
 function Server:on_attach(server, bufnr)
@@ -42,8 +31,9 @@ function Server:on_attach(server, bufnr)
     self.__fns.on_attach(server, bufnr)
   end
 
-  require('inlay-hints').setup_autocmd(bufnr, server.name)
-  self:set_inlay_hints(bufnr)
+  local lib = require('inlay-hints')
+  lib.setup_autocmd(bufnr, server.name)
+  lib.set_inlay_hints(bufnr, server.name)
 end
 
 function Server:lsp_options(opts)
@@ -110,25 +100,19 @@ function M.lsp_options(name, opts)
   return opts
 end
 
-local function call_inlay_hints(method, bufnr, name, filter)
+function M.get_hints(name, bufnr, callback)
   if not name then
-    for _, server in ipairs(vim.lsp.buf_get_clients(bufnr)) do
-      M[method](bufnr, server.name, filter)
+    for _, server in ipairs(vim.lsp.buf_get_clients(bufnr or 0)) do
+      M.get_hints(server.name, bufnr, callback)
     end
   else
     local server = M.get(name)
     if server then
-      Server[method](server, bufnr, filter)
+      server:get_hints(bufnr, callback)
+    else
+      callback(false)
     end
   end
-end
-
-function M.set_inlay_hints(bufnr, name, filter)
-  return call_inlay_hints('set_inlay_hints', bufnr, name, filter)
-end
-
-function M.force_set_inlay_hints(bufnr, name, filter)
-  return call_inlay_hints('force_set_inlay_hints', bufnr, name, filter)
 end
 
 return M

@@ -33,8 +33,8 @@ end
 function M.get_text(bufnr, range)
   local lines = vim.api.nvim_buf_get_lines(
     bufnr,
-    range.start.line,
-    range['end'].line + 1,
+    range.start.line - 1,
+    range['end'].line,
     false
   )
 
@@ -104,6 +104,14 @@ function M.buf_has_lsp(bufnr, name)
   end
 
   return false
+end
+
+function M.is_enabled(bufnr)
+  if (bufnr or 0) == 0 then
+    bufnr = vim.api.nvim_get_current_buf()
+  end
+  return (vim.g.inlay_hints_enabled or 1) ~= 0
+    and vim.fn.getbufvar(bufnr or 0, 'inlay_hints_enabled', 1) ~= 0
 end
 
 return M
