@@ -1,7 +1,10 @@
 local M = {}
 
+local utils = require('inlay-hints.utils')
+
 local default_options = {
   nerdfonts = true,
+  filter = nil,
   render = {
     type_symbol = '‣ ',
     return_symbol = ' ',
@@ -24,88 +27,41 @@ local options = nil
 
 local namespace = vim.api.nvim_create_namespace('inlay-hints')
 
-local function setup_autocmd(events, bufnr, server_name)
-  vim.api.nvim_command(
-    string.format(
-      'autocmd %s %s :lua require"inlay-hints".set_inlay_hints(%s,%s)',
-      events,
-      (bufnr and bufnr ~= 0) and ('<buffer=' .. tostring(bufnr) .. '>')
-        or '<buffer>',
-      bufnr or 0,
-      vim.inspect(server_name)
-    )
+local filters = {
+  current_line = function(bufnr)
+    local line = utils.buf_get_current_line(bufnr)
+
+    return function(range)
+      return range['end'].line == line
+    end
+  end,
+  ['nup-ndown'] = function(bufnr, opts)
+    opts.up = opts.up or 5
+    opts.up = opts.up < 0 and 0 or opts.up
+    opts.down = opts.down or 5
+    opts.down = opts.down < 0 and 0 or opts.down
+
+    local line = utils.buf_get_current_line(bufnr)
+    local start = line - opts.up
+    local stop = line + opts.down
+
+    return function(range)
+      return range['end'].line >= start and range['end'].line <= stop
+    end
+  end,
+}
+
+local function make_autocmd(events, bufnr, server_name, method)
+  return string.format(
+    'autocmd %s %s :lua require"inlay-hints".%s(%s,%s)',
+    events,
+    (bufnr and bufnr ~= 0) and ('<buffer=' .. tostring(bufnr) .. '>')
+      or '<buffer>',
+    method,
+    bufnr or 0,
+    vim.inspect(server_name)
   )
 end
-
-function M.options()
-  return vim.tbl_deep_extend('force', {}, options)
-end
-
-function M.setup(opts)
-  opts = opts or {}
-  if opts.nerdfonts == nil then
-    opts.nerdfonts = true
-  end
-
-  if not opts.nerdfonts then
-    opts = vim.tbl_deep_extend('keep', opts, no_nerdfonts_options)
-  end
-
-  options = vim.tbl_deep_extend('keep', opts, default_options)
-end
-
-function M.setup_autocmd(bufnr, server_name)
-  local events = 'BufEnter,BufWinEnter,TabEnter,BufWritePost'
-  setup_autocmd(events, bufnr, server_name)
-end
-
-function M.on_attach(server, bufnr)
-  return require('inlay-hints.lsp').on_attach(server, bufnr)
-end
-
-function M.clear_inlay_hints(bufnr)
-  vim.api.nvim_buf_clear_namespace(bufnr or 0, namespace, 0, -1)
-end
-
-function M.enable()
-  if (bufnr or 0) == 0 then
-    bufnr = vim.api.nvim_get_current_buf()
-  end
-  vim.g.inlay_hints_enabled = 1
-  for _, bufnr in ipairs(
-    vim.api.nvim_eval('filter(range(1, bufnr(\'$\')), \'buflisted(v:val)\')')
-  ) do
-    vim.fn.setbufvar(bufnr, 'inlay_hints_enabled', 1)
-  end
-  M.oneshot()
-end
-
-function M.disable()
-  vim.g.inlay_hints_enabled = 0
-  for _, bufnr in ipairs(
-    vim.api.nvim_eval('filter(range(1, bufnr(\'$\')), \'buflisted(v:val)\')')
-  ) do
-    M.clear_inlay_hints(bufnr)
-  end
-end
-
-function M.buf_disable(bufnr)
-  if (bufnr or 0) == 0 then
-    bufnr = vim.api.nvim_get_current_buf()
-  end
-  vim.fn.setbufvar(bufnr, 'inlay_hints_enabled', 0)
-  M.clear_inlay_hints(bufnr)
-end
-
-function M.buf_enable(bufnr)
-  if (bufnr or 0) == 0 then
-    bufnr = vim.api.nvim_get_current_buf()
-  end
-  require('inlay-hints.lsp').set_inlay_hints(bufnr)
-  vim.fn.setbufvar(bufnr, 'inlay_hints_enabled', 1)
-end
-
-M.lsp_options = require('inlay-hints.lsp').lsp_options
 
 local function default_render(bufnr, hints, set_extmark)
   local lines = {}
@@ -156,7 +112,26 @@ local function default_render(bufnr, hints, set_extmark)
   end
 end
 
-local function apply_filter(hints, filter)
+local function apply_filter(bufnr, hints, filter)
+  if (bufnr or 0) == 0 then
+    bufnr = vim.api.nvim_get_current_buf()
+  end
+
+  local opts = {}
+
+  if type(filter) == 'string' then
+    filter = filters[filter]
+  elseif type(filter) == 'table' then
+    opts = vim.tbl_deep_extend('keep', { nil }, filter)
+    filter = filters[filter[1]]
+  end
+
+  if type(filter) ~= 'function' then
+    return hints
+  end
+
+  filter = filter(bufnr, opts)
+
   local new_hints = { variables = {}, returns = {} }
 
   for _, hint in ipairs(hints.variables) do
@@ -174,6 +149,90 @@ local function apply_filter(hints, filter)
   return new_hints
 end
 
+function M.options()
+  return vim.tbl_deep_extend('force', {}, options)
+end
+
+function M.setup(opts)
+  opts = opts or {}
+  if opts.nerdfonts == nil then
+    opts.nerdfonts = true
+  end
+
+  if not opts.nerdfonts then
+    opts = vim.tbl_deep_extend('keep', opts, no_nerdfonts_options)
+  end
+
+  options = vim.tbl_deep_extend('keep', opts, default_options)
+end
+
+function M.setup_autocmd(bufnr, server_name)
+  if (bufnr or 0) == 0 then
+    bufnr = vim.api.nvim_get_current_buf()
+  end
+  local cmd = string.format(
+    'augroup inlay_hints_b%s\nau!\n%s\n%s\naugroup END',
+    bufnr,
+    make_autocmd(
+      'BufEnter,BufWinEnter,TabEnter,BufWritePost',
+      bufnr,
+      server_name,
+      'set_inlay_hints'
+    ),
+    make_autocmd('CursorMoved,CursorMovedI', bufnr, server_name, 'move_cursor')
+  )
+
+  vim.api.nvim_exec(cmd, false)
+end
+
+function M.on_attach(server, bufnr)
+  return require('inlay-hints.lsp').on_attach(server, bufnr)
+end
+
+function M.clear_inlay_hints(bufnr)
+  vim.api.nvim_buf_clear_namespace(bufnr or 0, namespace, 0, -1)
+end
+
+function M.enable()
+  if (bufnr or 0) == 0 then
+    bufnr = vim.api.nvim_get_current_buf()
+  end
+  vim.g.inlay_hints_enabled = 1
+  for _, bufnr in ipairs(
+    vim.api.nvim_eval('filter(range(1, bufnr(\'$\')), \'buflisted(v:val)\')')
+  ) do
+    vim.fn.setbufvar(bufnr, 'inlay_hints_enabled', 1)
+  end
+  M.oneshot()
+end
+
+function M.disable()
+  vim.g.inlay_hints_enabled = 0
+  for _, bufnr in ipairs(
+    vim.api.nvim_eval('filter(range(1, bufnr(\'$\')), \'buflisted(v:val)\')')
+  ) do
+    M.clear_inlay_hints(bufnr)
+  end
+end
+
+function M.buf_disable(bufnr)
+  if (bufnr or 0) == 0 then
+    bufnr = vim.api.nvim_get_current_buf()
+  end
+  vim.fn.setbufvar(bufnr, 'inlay_hints_enabled', 0)
+  M.clear_inlay_hints(bufnr)
+end
+
+function M.buf_enable(bufnr)
+  if (bufnr or 0) == 0 then
+    bufnr = vim.api.nvim_get_current_buf()
+  end
+  require('inlay-hints.lsp').set_inlay_hints(bufnr)
+  vim.fn.setbufvar(bufnr, 'inlay_hints_enabled', 1)
+end
+
+M.lsp_options = require('inlay-hints.lsp').lsp_options
+
 function M.redraw(bufnr, filter)
   if (bufnr or 0) == 0 then
     bufnr = vim.api.nvim_get_current_buf()
@@ -187,7 +246,7 @@ function M.redraw(bufnr, filter)
 
   local hints = vim.fn.getbufvar(bufnr, 'inlay_hints_last_response', nil)
   if type(hints) == 'table' then
-    M.render(bufnr, apply_filter(hints, filter))
+    M.render(bufnr, apply_filter(bufnr, hints, filter))
   end
 end
 
@@ -210,13 +269,8 @@ function M.render(bufnr, hints)
   )
 end
 
-function M.oneshot_line(bufnr, line)
-  line = line or vim.api.nvim_win_get_cursor(bufnr or 0)[1]
-  local filter = function(range)
-    return range['end'].line == line
-  end
-
-  M.oneshot(bufnr, filter)
+function M.oneshot_line(bufnr)
+  M.oneshot(bufnr, 'current_line')
 end
 
 function M.oneshot(bufnr, filter)
@@ -231,16 +285,24 @@ function M.oneshot(bufnr, filter)
 end
 
 function M.set_inlay_hints(bufnr, server_name)
-  if require('inlay-hints.utils').is_enabled(bufnr) then
+  if utils.is_enabled(bufnr) then
     require('inlay-hints.lsp').get_hints(
       server_name,
       bufnr,
       function(error, hints)
         if not error then
-          M.render(bufnr, hints)
+          M.render(bufnr, apply_filter(bufnr, hints, options.filter))
         end
       end
     )
+  end
+end
+
+function M.move_cursor(bufnr, _)
+  if utils.is_enabled(bufnr) then
+    if options.filter then
+      M.redraw(bufnr, options.filter)
+    end
   end
 end
 

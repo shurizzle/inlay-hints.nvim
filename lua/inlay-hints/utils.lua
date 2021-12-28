@@ -114,4 +114,16 @@ function M.is_enabled(bufnr)
     and vim.fn.getbufvar(bufnr or 0, 'inlay_hints_enabled', 1) ~= 0
 end
 
+function M.buf_get_current_line(bufnr)
+  if (bufnr or 0) == 0 then
+    bufnr = vim.api.nvim_get_current_buf()
+  end
+  local info = vim.fn.getbufinfo(bufnr)[1]
+  if info then
+    return info.lnum
+  else
+    return 0
+  end
+end
+
 return M
