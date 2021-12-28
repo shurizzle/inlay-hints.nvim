@@ -70,6 +70,9 @@ function M.clear_inlay_hints(bufnr)
 end
 
 function M.enable()
+  if (bufnr or 0) == 0 then
+    bufnr = vim.api.nvim_get_current_buf()
+  end
   vim.g.inlay_hints_enabled = 1
   for _, bufnr in ipairs(
     vim.api.nvim_eval('filter(range(1, bufnr(\'$\')), \'buflisted(v:val)\')')
@@ -89,13 +92,19 @@ function M.disable()
 end
 
 function M.buf_disable(bufnr)
-  vim.fn.setbufvar(bufnr or 0, 'inlay_hints_enabled', 0)
+  if (bufnr or 0) == 0 then
+    bufnr = vim.api.nvim_get_current_buf()
+  end
+  vim.fn.setbufvar(bufnr, 'inlay_hints_enabled', 0)
   M.clear_inlay_hints(bufnr)
 end
 
 function M.buf_enable(bufnr)
+  if (bufnr or 0) == 0 then
+    bufnr = vim.api.nvim_get_current_buf()
+  end
   require('inlay-hints.lsp').set_inlay_hints(bufnr)
-  vim.fn.setbufvar(bufnr or 0, 'inlay_hints_enabled', 1)
+  vim.fn.setbufvar(bufnr, 'inlay_hints_enabled', 1)
 end
 
 M.lsp_options = lsp.lsp_options
@@ -145,7 +154,7 @@ local function default_render(bufnr, hints, set_extmark)
     end
 
     if string.len(text) > 0 then
-      set_extmark(line - 1, 0, {
+      set_extmark(line, 1, {
         virt_text_pos = 'eol',
         virt_text = { { text, options.render.highlight } },
         hl_mode = 'combine',
@@ -154,10 +163,50 @@ local function default_render(bufnr, hints, set_extmark)
   end
 end
 
+function M.redraw(bufnr, filter)
+  if (bufnr or 0) == 0 then
+    bufnr = vim.api.nvim_get_current_buf()
+  end
+
+  M.clear_inlay_hints(bufnr)
+
+  filter = filter or function()
+    return true
+  end
+
+  local hints = vim.fn.getbufvar(bufnr, 'inlay_hints_last_response', nil)
+  if type(hints) == 'table' then
+    local new_hints = { variables = {}, returns = {} }
+
+    for _, hint in ipairs(hints.variables) do
+      if filter(hint.range) then
+        table.insert(
+          new_hints.variables,
+          vim.tbl_deep_extend('force', {}, hint)
+        )
+      end
+    end
+
+    for _, hint in ipairs(hints.returns) do
+      if filter(hint.range) then
+        table.insert(new_hints.returns, vim.tbl_deep_extend('force', {}, hint))
+      end
+    end
+
+    M.render(bufnr, new_hints)
+  end
+end
+
 function M.render(bufnr, hints)
   M.clear_inlay_hints(bufnr)
-  local function set_extmark(...)
-    return vim.api.nvim_buf_set_extmark(bufnr, namespace, ...)
+  local function set_extmark(line, character, ...)
+    return vim.api.nvim_buf_set_extmark(
+      bufnr,
+      namespace,
+      line - 1,
+      character - 1,
+      ...
+    )
   end
 
   (type(options.render) == 'function' and options.render or default_render)(

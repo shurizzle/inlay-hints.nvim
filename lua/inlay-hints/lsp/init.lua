@@ -21,7 +21,7 @@ end
 
 function Server:force_set_inlay_hints(bufnr, filter)
   if self.__fns.set_inlay_hints then
-    self.__fns.set_inlay_hints(bufnr, filter)
+    return self.__fns.set_inlay_hints(bufnr, filter)
   end
 end
 

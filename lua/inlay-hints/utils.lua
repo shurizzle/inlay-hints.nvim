@@ -42,7 +42,7 @@ function M.get_text(bufnr, range)
     return lines
   end
 
-  lines[1] = string.sub(lines[1], range.start.character + 1)
+  lines[1] = string.sub(lines[1], range.start.character)
   lines[#lines] = string.sub(
     lines[#lines],
     1,

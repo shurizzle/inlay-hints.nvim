@@ -1,5 +1,12 @@
 local utils = require('inlay-hints.utils')
 
+local function fix_range(range)
+  local new_range = vim.tbl_deep_extend('force', {}, range)
+  new_range.start.character = new_range.start.character + 1
+  new_range['end'].character = new_range['end'].character + 1
+  return new_range
+end
+
 -- [1]: error
 -- [2]: v
 --   kind: TypeHint, label: type, range
@@ -16,39 +23,45 @@ local function handler(error, hints, info, _, filter)
     return
   end
 
+  local save_hints = { variables = {}, returns = {} }
   local new_hints = { variables = {}, returns = {} }
 
   for _, hint in ipairs(hints) do
     if hint.kind == 'TypeHint' then
-      if filter(hint.range) then
-        table.insert(new_hints.variables, {
-          type = hint.label,
-          name = utils.get_text(info.bufnr, hint.range),
-          range = hint.range,
-        })
+      local range = fix_range(hint.range)
+      local _hint = {
+        type = hint.label,
+        name = utils.get_text(info.bufnr, range),
+        range = range,
+      }
+
+      table.insert(save_hints.variables, _hint)
+      if filter(_hint.range) then
+        table.insert(
+          new_hints.variables,
+          vim.tbl_deep_extend('force', {}, _hint)
+        )
       end
     elseif hint.kind == 'ChainingHint' then
-      if filter(hint.range) then
-        table.insert(new_hints.returns, {
-          type = hint.label,
-          range = hint.range,
-        })
+      local _hint = {
+        type = hint.label,
+        range = fix_range(hint.range),
+      }
+      table.insert(save_hints.returns, _hint)
+      if filter(_hint.range) then
+        table.insert(new_hints.returns, vim.tbl_deep_extend('force', {}, _hint))
       end
     end
   end
+
+  vim.fn.setbufvar(info.bufnr, 'inlay_hints_last_response', save_hints)
 
   require('inlay-hints').render(info.bufnr, new_hints)
 end
 
 local function filtered_handler(filter)
-  return function(...)
-    handler(
-      select(1, ...),
-      select(2, ...),
-      select(3, ...),
-      select(4, ...),
-      filter
-    )
+  return function(a, b, c, d)
+    handler(a, b, c, d, filter)
   end
 end
 
