@@ -103,11 +103,7 @@ require'inlay-hints.rust-tools'.setup({
 })
 ```
 
-## Notes
-
-inlay-hints.nvim doesn't override callback functions like `on_attach` or lsp callback, it just concat them together. (`'inlay-hints.utils'.concat_functions`)
-
-## Complete example
+### Complete example
 
 From my nvim configuration:
 
@@ -146,3 +142,15 @@ require'nvim-lsp-installer'.on_server_ready(function(server)
   end
 end)
 ```
+
+## Notes
+
+inlay-hints.nvim doesn't override callback functions like `on_attach` or lsp callback, it just concat them together. (`'inlay-hints.utils'.concat_functions`)
+
+## LSP supported
+
+- rust_analyzer
+
+---
+
+Feel free to contribute.
