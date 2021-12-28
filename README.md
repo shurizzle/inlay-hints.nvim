@@ -2,6 +2,8 @@
 
 A tool that shows inlay hints for auto-typed variables and returning types.
 
+![screenshot](https://github.com/shurizzle/inlay-hints.nvim/blob/master/.github/images/screenshot.png?raw=true)
+
 ## Prerequisites
 
 - neovim 0.5
