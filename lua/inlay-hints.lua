@@ -31,7 +31,8 @@ local function setup_autocmd(events, bufnr, server_name)
     string.format(
       'autocmd %s %s :lua require"inlay-hints.lsp".set_inlay_hints(%s,%s)',
       events,
-      bufnr and ('<buffer=' .. tostring(bufnr) .. '>') or '<buffer>',
+      (bufnr and bufnr ~= 0) and ('<buffer=' .. tostring(bufnr) .. '>')
+        or '<buffer>',
       bufnr or 0,
       vim.inspect(server_name)
     )
@@ -66,6 +67,35 @@ end
 
 function M.clear_inlay_hints(bufnr)
   vim.api.nvim_buf_clear_namespace(bufnr or 0, namespace, 0, -1)
+end
+
+function M.enable()
+  vim.g.inlay_hints_enabled = 1
+  for _, bufnr in ipairs(
+    vim.api.nvim_eval('filter(range(1, bufnr(\'$\')), \'buflisted(v:val)\')')
+  ) do
+    vim.fn.setbufvar(bufnr, 'inlay_hints_enabled', 1)
+  end
+  M.oneshot()
+end
+
+function M.disable()
+  vim.g.inlay_hints_enabled = 0
+  for _, bufnr in ipairs(
+    vim.api.nvim_eval('filter(range(1, bufnr(\'$\')), \'buflisted(v:val)\')')
+  ) do
+    M.clear_inlay_hints(bufnr)
+  end
+end
+
+function M.buf_disable(bufnr)
+  vim.fn.setbufvar(bufnr or 0, 'inlay_hints_enabled', 0)
+  M.clear_inlay_hints(bufnr)
+end
+
+function M.buf_enable(bufnr)
+  require('inlay-hints.lsp').set_inlay_hints(bufnr)
+  vim.fn.setbufvar(bufnr or 0, 'inlay_hints_enabled', 1)
 end
 
 M.lsp_options = lsp.lsp_options
@@ -135,6 +165,19 @@ function M.render(bufnr, hints)
     hints,
     set_extmark
   )
+end
+
+function M.oneshot_line(bufnr, line)
+  line = line or (vim.api.nvim_win_get_cursor(bufnr or 0)[1] - 1)
+  local filter = function(range)
+    return range['end'].line == line
+  end
+
+  M.oneshot(bufnr, filter)
+end
+
+function M.oneshot(bufnr, filter)
+  require('inlay-hints.lsp').force_set_inlay_hints(bufnr, nil, filter)
 end
 
 return M
