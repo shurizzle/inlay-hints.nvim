@@ -28,7 +28,7 @@ end)
 ## Configuration
 
 ```lua
-require'inlay-hints'.setup({
+require'inlay-hints'.config({
   ...options
 })
 ```

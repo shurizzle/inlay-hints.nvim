@@ -152,7 +152,7 @@ function M.options()
   return vim.tbl_deep_extend('force', {}, options)
 end
 
-function M.setup(opts)
+function M.config(opts)
   opts = opts or {}
   if opts.nerdfonts == nil then
     opts.nerdfonts = true
