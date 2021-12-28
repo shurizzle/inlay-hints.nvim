@@ -2,6 +2,8 @@
 
 A tool that shows inlay hints for auto-typed variables and returning types.
 
+![screenshot](https://user-images.githubusercontent.com/203655/147517017-33f88445-e7c0-4a30-ac40-873892745471.png)
+
 ## Prerequisites
 
 - neovim 0.5
