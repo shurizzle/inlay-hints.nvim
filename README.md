@@ -54,7 +54,7 @@ local default_options = {
 - type_separator: string. It separates variables' hints.
 - return_separator: string. It separates returns' hints.
 - type_return_separator: string. It separates variables' and returns' hints.
-- highlight: string. The highlight rule (you can define and extra one) to highlight text with.
+- highlight: string. The highlight rule (so you can define your own) to highlight text with.
 
 ## Usage
 
