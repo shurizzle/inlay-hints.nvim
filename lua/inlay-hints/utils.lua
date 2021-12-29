@@ -107,17 +107,32 @@ function M.buf_has_lsp(bufnr, name)
 end
 
 function M.is_enabled(bufnr)
-  if (bufnr or 0) == 0 then
+  bufnr = M.ensure_bufnr(bufnr)
+  return (vim.g.inlay_hints_enabled or 1) ~= 0
+    and vim.fn.getbufvar(bufnr, 'inlay_hints_enabled', 1) ~= 0
+end
+
+function M.is_numeric(n)
+  if type(n) == 'string' then
+    return n == tostring(tonumber(n))
+  elseif type(n) == 'number' then
+    return true
+  else
+    return false
+  end
+end
+
+function M.ensure_bufnr(bufnr)
+  bufnr = M.is_numeric(bufnr) and tonumber(bufnr) or nil
+  bufnr = bufnr or 0
+  if bufnr == 0 then
     bufnr = vim.api.nvim_get_current_buf()
   end
-  return (vim.g.inlay_hints_enabled or 1) ~= 0
-    and vim.fn.getbufvar(bufnr or 0, 'inlay_hints_enabled', 1) ~= 0
+  return bufnr
 end
 
 function M.buf_get_current_line(bufnr)
-  if (bufnr or 0) == 0 then
-    bufnr = vim.api.nvim_get_current_buf()
-  end
+  bufnr = M.ensure_bufnr(bufnr)
   local info = vim.fn.getbufinfo(bufnr)[1]
   if info then
     return info.lnum
