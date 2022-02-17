@@ -66,7 +66,7 @@ local function get_hints(bufnr, callback)
   utils.request(
     bufnr or 0,
     'rust-analyzer/inlayHints',
-    utils.get_params(),
+    utils.get_params(bufnr),
     callback_handler(callback)
   )
 end

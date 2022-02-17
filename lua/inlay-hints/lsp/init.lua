@@ -60,6 +60,7 @@ end
 
 local server_names = {
   rust_analyzer = 'rust_analyzer',
+  tsserver = 'tsserver',
 }
 
 M.Server = Server

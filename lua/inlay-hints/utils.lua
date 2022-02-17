@@ -1,7 +1,11 @@
 local M = {}
 
-function M.get_params()
-  return { textDocument = vim.lsp.util.make_text_document_params() }
+function M.make_text_document_params(bufnr)
+  return { uri = vim.uri_from_bufnr(bufnr) }
+end
+
+function M.get_params(bufnr)
+  return { textDocument = M.make_text_document_params(bufnr) }
 end
 
 function M.make_handler(fn)
