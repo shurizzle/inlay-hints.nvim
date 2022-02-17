@@ -147,11 +147,12 @@ end)
 
 ## Notes
 
-inlay-hints.nvim doesn't override callback functions like `on_attach` or lsp callback, it just concat them together. (`'inlay-hints.utils'.concat_functions`)
+inlay-hints.nvim doesn't override callback functions like `on_attach` or lsp callbacks, it just concat them together. (`'inlay-hints.utils'.concat_functions`)
 
 ## LSP supported
 
 - rust_analyzer
+- tsserver
 
 ---
 
