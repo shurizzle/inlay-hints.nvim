@@ -50,6 +50,10 @@ end
 -- [3]: {bufnr, client_id, method, params={textDocument={uri}}}
 -- [4]: config
 local function handler(error, hints, info, _, callback)
+  if not hints then
+    return
+  end
+
   hints = hints.inlayHints
   _G.last_coso = hints
   if error then
