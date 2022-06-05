@@ -121,7 +121,10 @@ else
       character = pos.character,
     }
 
-    local node = utils.get_node_at_position(bufnr, pos)
+    local node = utils.get_node_at_position(bufnr, {
+      line = pos.line,
+      character = pos.character - 1,
+    })
 
     if node then
       if

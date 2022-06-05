@@ -178,10 +178,6 @@ end
 if load_ts() then
   M.get_node_at_position = function(bufnr, pos_range, ignore_injected_langs)
     bufnr = bufnr or 0
-    pos_range = {
-      line = pos_range.line,
-      character = pos_range.character - 1,
-    }
 
     local root_lang_tree = ts_parsers.get_parser(bufnr)
     if not root_lang_tree then
@@ -223,6 +219,50 @@ if load_ts() then
       pos_range.character
     )
   end
+
+  M.get_node_at_range = function(bufnr, range, ignore_injected_langs)
+    bufnr = bufnr or 0
+
+    local root_lang_tree = ts_parsers.get_parser(bufnr)
+    if not root_lang_tree then
+      return
+    end
+
+    local root
+    if ignore_injected_langs then
+      for _, tree in ipairs(root_lang_tree:trees()) do
+        local tree_root = tree:root()
+        if
+          tree_root
+          and ts_utils.is_in_node_range(
+            tree_root,
+            range.start.line,
+            range.start.character
+          )
+        then
+          root = tree_root
+          break
+        end
+      end
+    else
+      root = ts_utils.get_root_for_position(
+        range.start.line,
+        range.start.character,
+        root_lang_tree
+      )
+    end
+
+    if not root then
+      return
+    end
+
+    return root:named_descendant_for_range(
+      range.start.line,
+      range.start.character,
+      range['end'].line,
+      range['end'].character
+    )
+  end
 end
 
 M.position_cmp = function(a, b)
@@ -236,6 +276,11 @@ end
 
 M.range_contains = function(a, b)
   return M.position_cmp(a.start, b) >= 0 and M.position_cmp(a['end'], b) <= 0
+end
+
+M.range_eq = function(a, b)
+  return M.position_cmp(a.start, b.start) == 0
+    and M.position_cmp(a['end'], b['end'])
 end
 
 if vim.treesitter then
