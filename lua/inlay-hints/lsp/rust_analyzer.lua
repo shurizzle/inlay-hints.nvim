@@ -10,10 +10,7 @@ local function fix_range(range)
 end
 
 -- [1]: error
--- [2]: v
---   kind: TypeHint, label: type, range
---   kind: ParameterHint, label: name, range
---   kind: ChainingHint, label: type, range
+-- [2]: https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#inlayHintParams
 -- [3]: {bufnr, client_id, method, params={textDocument={uri}}}
 -- [4]: config
 local function handler(error, hints, info, _, callback)
@@ -29,20 +26,36 @@ local function handler(error, hints, info, _, callback)
   local save_hints = { variables = {}, returns = {} }
 
   for _, hint in ipairs(hints) do
-    if hint.kind == 'TypeHint' then
-      local range = fix_range(hint.range)
+    if hint.kind == 1 then
+      local range = fix_range(hint.data.position)
+      if hint.paddingLeft then
+        local _hint = {
+          type = hint.tooltip,
+          range = range,
+        }
+        table.insert(save_hints.returns, _hint)
+      else
+        local _hint = {
+          type = hint.tooltip,
+          name = utils.get_text(info.bufnr, range),
+          range = range,
+        }
+
+        table.insert(save_hints.variables, _hint)
+      end
+    elseif hint.kind == 2 then
+      -- paramter names
+    else
       local _hint = {
-        type = hint.label,
-        name = utils.get_text(info.bufnr, range),
-        range = range,
+        range = {
+          ['end'] = {
+            line = hint.position.line + 1,
+            character = hint.position.character + 1,
+          },
+        },
+        type = hint.tooltip,
       }
 
-      table.insert(save_hints.variables, _hint)
-    elseif hint.kind == 'ChainingHint' then
-      local _hint = {
-        type = hint.label,
-        range = fix_range(hint.range),
-      }
       table.insert(save_hints.returns, _hint)
     end
   end
@@ -65,7 +78,7 @@ end
 local function get_hints(bufnr, callback)
   utils.request(
     bufnr or 0,
-    'rust-analyzer/inlayHints',
+    'textDocument/inlayHint',
     utils.get_params(bufnr),
     callback_handler(callback)
   )

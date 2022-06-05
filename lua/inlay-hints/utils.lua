@@ -5,7 +5,18 @@ function M.make_text_document_params(bufnr)
 end
 
 function M.get_params(bufnr)
-  return { textDocument = M.make_text_document_params(bufnr) }
+  local lines = vim.api.nvim_buf_line_count(bufnr) - 1
+  local line = vim.api.nvim_buf_get_lines(bufnr, lines, lines + 1, false)[1]
+  local characters = #line - 1
+  lines = lines - 1
+
+  return {
+    textDocument = M.make_text_document_params(bufnr),
+    range = {
+      start = { line = 0, character = 0 },
+      ['end'] = { line = lines, character = characters },
+    },
+  }
 end
 
 function M.make_handler(fn)
