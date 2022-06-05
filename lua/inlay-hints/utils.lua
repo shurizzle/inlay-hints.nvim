@@ -1,3 +1,15 @@
+local ts_parsers, ts_utils
+
+local function load_ts()
+  local ok
+  ok, ts_parsers = pcall(require, 'nvim-treesitter.parsers')
+  if ok then
+    ok, ts_utils = pcall(require, 'nvim-treesitter.ts_utils')
+  end
+
+  return ok
+end
+
 local M = {}
 
 function M.make_text_document_params(bufnr)
@@ -160,6 +172,98 @@ function M.buf_get_current_line(bufnr)
     return info.lnum
   else
     return 0
+  end
+end
+
+if load_ts() then
+  M.get_node_at_position = function(bufnr, pos_range, ignore_injected_langs)
+    bufnr = bufnr or 0
+    pos_range = {
+      line = pos_range.line,
+      character = pos_range.character - 1,
+    }
+
+    local root_lang_tree = ts_parsers.get_parser(bufnr)
+    if not root_lang_tree then
+      return
+    end
+
+    local root
+    if ignore_injected_langs then
+      for _, tree in ipairs(root_lang_tree:trees()) do
+        local tree_root = tree:root()
+        if
+          tree_root
+          and ts_utils.is_in_node_range(
+            tree_root,
+            pos_range.line,
+            pos_range.character
+          )
+        then
+          root = tree_root
+          break
+        end
+      end
+    else
+      root = ts_utils.get_root_for_position(
+        pos_range.line,
+        pos_range.character,
+        root_lang_tree
+      )
+    end
+
+    if not root then
+      return
+    end
+
+    return root:named_descendant_for_range(
+      pos_range.line,
+      pos_range.character,
+      pos_range.line,
+      pos_range.character
+    )
+  end
+end
+
+M.position_cmp = function(a, b)
+  local res = a.line - b.line
+  if res ~= 0 then
+    return res
+  end
+
+  return a.character - b.character
+end
+
+M.range_contains = function(a, b)
+  return M.position_cmp(a.start, b) >= 0 and M.position_cmp(a['end'], b) <= 0
+end
+
+if vim.treesitter then
+  M.node_start = function(node)
+    local a, b, _ = node:start()
+    return {
+      line = a,
+      character = b,
+    }
+  end
+
+  M.node_end = function(node)
+    local a, b, _ = node:end_()
+    return {
+      line = a,
+      character = b,
+    }
+  end
+
+  M.node_range = function(node)
+    return {
+      start = M.node_start(node),
+      ['end'] = M.node_end(node),
+    }
+  end
+
+  M.node_contains = function(node, b)
+    return M.range_contains(M.node_range(node), b)
   end
 end
 
