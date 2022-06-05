@@ -39,11 +39,13 @@ end
 local nerdfonts_options = {
   type_symbol = '‣ ',
   return_symbol = ' ',
+  info_symbol = '// ',
 }
 
 local no_nerdfonts_options = {
   type_symbol = '> ',
   return_symbol = '< ',
+  info_symbol = '// ',
 }
 
 local default_options = vim.tbl_deep_extend('keep', {
@@ -51,7 +53,9 @@ local default_options = vim.tbl_deep_extend('keep', {
   variable_separator = ': ',
   type_separator = ', ',
   return_separator = ', ',
+  info_separator = ' / ',
   type_return_separator = ' ',
+  return_info_separator = ' ',
   highlight = 'Comment',
 }, nerdfonts_options)
 
@@ -72,7 +76,7 @@ M.add('default', function(bufnr, options, hints, set_extmark)
 
   for _, varhint in ipairs(hints.variables) do
     local line = varhint.range['end'].line
-    lines[line] = lines[line] or { types = '', returns = '' }
+    lines[line] = lines[line] or { types = '', returns = '', infos = '' }
     if string.len(lines[line].types) > 0 then
       lines[line].types = lines[line].types .. options.type_separator
     end
@@ -84,11 +88,20 @@ M.add('default', function(bufnr, options, hints, set_extmark)
 
   for _, rethint in ipairs(hints.returns) do
     local line = rethint.range['end'].line
-    lines[line] = lines[line] or { types = '', returns = '' }
+    lines[line] = lines[line] or { types = '', returns = '', infos = '' }
     if string.len(lines[line].returns) > 0 then
       lines[line].returns = lines[line].returns .. options.return_separator
     end
     lines[line].returns = lines[line].returns .. rethint.type
+  end
+
+  for _, infohint in ipairs(hints.infos) do
+    local line = infohint.range['end'].line
+    lines[line] = lines[line] or { types = '', returns = '', infos = '' }
+    if string.len(lines[line].infos) > 0 then
+      lines[line].infos = lines[line].infos .. options.info_separator
+    end
+    lines[line].infos = lines[line].infos .. infohint.type
   end
 
   for line, hint in pairs(lines) do
@@ -103,6 +116,13 @@ M.add('default', function(bufnr, options, hints, set_extmark)
         text = text .. options.type_return_separator
       end
       text = text .. options.return_symbol .. hint.returns
+    end
+
+    if type(hint.infos) == 'string' and string.len(hint.infos) > 0 then
+      if string.len(text) > 0 then
+        text = text .. options.type_info_separator
+      end
+      text = text .. options.info_symbol .. hint.infos
     end
 
     if string.len(text) > 0 then

@@ -23,7 +23,7 @@ local function handler(error, hints, info, _, callback)
     return
   end
 
-  local save_hints = { variables = {}, returns = {} }
+  local save_hints = { variables = {}, returns = {}, infos = {} }
 
   for _, hint in ipairs(hints) do
     if hint.kind == 1 then
@@ -56,7 +56,7 @@ local function handler(error, hints, info, _, callback)
         type = hint.tooltip,
       }
 
-      table.insert(save_hints.returns, _hint)
+      table.insert(save_hints.infos, _hint)
     end
   end
 
