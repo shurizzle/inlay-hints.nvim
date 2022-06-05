@@ -10,17 +10,7 @@ local function fix_position(pos)
 end
 
 if not utils.get_node_at_position then
-  local function _split(str)
-    if #str > 0 then
-      return str:sub(1, 1), _split(str:sub(2))
-    end
-  end
-
-  local function split(str)
-    return { _split(str) }
-  end
-
-  local INVALID_CHARS = split('\'"|!%&/()=?`^[]{}#-.:,;<>@+* ')
+  local INVALID_CHARS = utils.split('\'"|!%&/()=?`^[]{}#-.:,;<>@+* ')
 
   local function is_valid_char(ch)
     return not vim.tbl_contains(INVALID_CHARS, ch)

@@ -9,6 +9,27 @@ local function fix_range(range)
   return new_range
 end
 
+local INVALID_CHARS = utils.split('\'"|!%&/()=?`^[]{}#-.:,;<>@+* ')
+
+local function is_valid_char(ch)
+  return not vim.tbl_contains(INVALID_CHARS, ch)
+end
+
+local function get_ident(bufnr, range)
+  local text = utils.get_text(bufnr, range)
+
+  if not text or string.len(text) == 0 then
+    return
+  end
+
+  for _, ch in ipairs(utils.split(text)) do
+    if not is_valid_char(ch) then
+      return
+    end
+  end
+  return text
+end
+
 -- [1]: error
 -- [2]: https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#inlayHintParams
 -- [3]: {bufnr, client_id, method, params={textDocument={uri}}}
@@ -28,7 +49,9 @@ local function handler(error, hints, info, _, callback)
   for _, hint in ipairs(hints) do
     if hint.kind == 1 then
       local range = fix_range(hint.data.position)
-      if hint.paddingLeft then
+      local ident = get_ident(info.bufnr, range)
+
+      if not ident then
         local _hint = {
           type = hint.tooltip,
           range = range,
@@ -37,7 +60,7 @@ local function handler(error, hints, info, _, callback)
       else
         local _hint = {
           type = hint.tooltip,
-          name = utils.get_text(info.bufnr, range),
+          name = ident,
           range = range,
         }
 

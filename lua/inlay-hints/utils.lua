@@ -267,4 +267,14 @@ if vim.treesitter then
   end
 end
 
+local function _split(str)
+  if #str > 0 then
+    return str:sub(1, 1), _split(str:sub(2))
+  end
+end
+
+M.split = function(str)
+  return { _split(str) }
+end
+
 return M
