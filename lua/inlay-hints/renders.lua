@@ -74,7 +74,7 @@ M.add('default', function(bufnr, options, hints, set_extmark)
 
   local lines = {}
 
-  for _, varhint in ipairs(hints.variables) do
+  for _, varhint in ipairs(hints.variables or {}) do
     local line = varhint.range['end'].line
     lines[line] = lines[line] or { types = '', returns = '', infos = '' }
     if string.len(lines[line].types) > 0 then
@@ -86,7 +86,7 @@ M.add('default', function(bufnr, options, hints, set_extmark)
       .. varhint.type
   end
 
-  for _, rethint in ipairs(hints.returns) do
+  for _, rethint in ipairs(hints.returns or {}) do
     local line = rethint.range['end'].line
     lines[line] = lines[line] or { types = '', returns = '', infos = '' }
     if string.len(lines[line].returns) > 0 then
@@ -95,7 +95,7 @@ M.add('default', function(bufnr, options, hints, set_extmark)
     lines[line].returns = lines[line].returns .. rethint.type
   end
 
-  for _, infohint in ipairs(hints.infos) do
+  for _, infohint in ipairs(hints.infos or {}) do
     local line = infohint.range['end'].line
     lines[line] = lines[line] or { types = '', returns = '', infos = '' }
     if string.len(lines[line].infos) > 0 then
