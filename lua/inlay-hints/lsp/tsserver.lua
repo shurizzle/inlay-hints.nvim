@@ -157,7 +157,7 @@ else
         start = fix_position(utils.node_start(node)),
         ['end'] = fix_position(utils.node_end(node)),
       },
-        vim.treesitter.query.get_node_text(node, bufnr)
+        string.gsub(vim.treesitter.query.get_node_text(node, bufnr), '%s+', ' ')
     end
   end
 end
