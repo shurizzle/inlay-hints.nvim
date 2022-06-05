@@ -87,7 +87,8 @@ end
 local function on_server_start(_, result)
   local bufnr = vim.api.nvim_get_current_buf()
 
-  if utils.buf_has_lsp(bufnr, 'rust_analyzer') then
+  local server = utils.buf_get_lsp(bufnr, 'rust_analyzer')
+  if server and utils.server_has_inlay_hints(server) then
     require('inlay-hints').set_inlay_hints(bufnr, 'rust_analyzer')
   end
 end

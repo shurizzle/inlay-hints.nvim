@@ -111,20 +111,27 @@ function M.deep_extend(policy, ...)
   return result
 end
 
-function M.buf_has_lsp(bufnr, name)
+function M.buf_get_lsp(bufnr, name)
   for _, server in ipairs(vim.lsp.buf_get_clients(bufnr)) do
     if server.name == name then
-      return true
+      return server
     end
   end
+end
 
-  return false
+function M.buf_has_lsp(bufnr, name)
+  return not not M.buf_get_lsp(bufnr, name)
 end
 
 function M.is_enabled(bufnr)
   bufnr = M.ensure_bufnr(bufnr)
   return (vim.g.inlay_hints_enabled or 1) ~= 0
     and vim.fn.getbufvar(bufnr, 'inlay_hints_enabled', 1) ~= 0
+end
+
+function M.server_has_inlay_hints(server)
+  return server.server_capabilities.inlayHintProvider == true
+    or type(server.server_capabilities.inlayHintProvider) == 'table'
 end
 
 function M.is_numeric(n)
