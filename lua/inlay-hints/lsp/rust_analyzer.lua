@@ -93,6 +93,16 @@ local function on_server_start(_, result)
   end
 end
 
+local function lsp_options()
+  return {
+    capabilities = {
+      experimental = {
+        serverStatusNotification = true,
+      },
+    },
+  }
+end
+
 local function lsp_handlers()
   -- compatibility with rust-tools
   local ok, rust_tools = pcall(require, 'rust-tools.server_status')
@@ -107,6 +117,7 @@ local function lsp_handlers()
 end
 
 return require('inlay-hints.lsp').Server:new({
+  lsp_options = lsp_options,
   lsp_handlers = lsp_handlers,
   get_hints = get_hints,
 })
