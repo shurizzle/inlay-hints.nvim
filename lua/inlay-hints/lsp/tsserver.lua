@@ -70,7 +70,11 @@ else
     local parent = node:parent()
     local parent_type = parent and parent:type()
 
-    return (type == 'object_pattern' or type == 'identifier')
+    return (
+        type == 'object_pattern'
+        or type == 'array_pattern'
+        or type == 'identifier'
+      )
       and (
         parent_type == 'variable_declarator'
         or parent_type == 'formal_parameters'
