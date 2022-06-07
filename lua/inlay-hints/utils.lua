@@ -280,7 +280,7 @@ end
 
 M.range_eq = function(a, b)
   return M.position_cmp(a.start, b.start) == 0
-    and M.position_cmp(a['end'], b['end'])
+    and M.position_cmp(a['end'], b['end']) == 0
 end
 
 if vim.treesitter then
